@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:trackexp/screens/add_trip.dart';
+import 'package:trackexp/services/hive_services.dart';
 import 'package:trackexp/utils/temp/analytics_page.dart';
 import 'package:trackexp/screens/home_page.dart';
 import 'package:trackexp/utils/temp/settings_page.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
+  await HiveService.openBoxes();
   runApp(const MyApp());
 }
 
@@ -29,18 +34,11 @@ class RootPage extends StatefulWidget {
 
 class _RootPageState extends State<RootPage> {
   int currentPage = 0;
-  int dummy = 0;
-
-  Future<void> refreshTrips() async {
-    setState(() {
-      dummy++;
-    }); // Trigger UI update
-  }
-
-  List<Widget> pages = const [
-    HomePage(),
-    AnalyticsPage(),
-    SettingsPage(),
+  
+  List<Widget> pages = [
+    HomePage(key: UniqueKey()), // Ensure HomePage is a unique widget
+    const AnalyticsPage(),
+    const SettingsPage(),
   ];
 
   @override
@@ -54,7 +52,7 @@ class _RootPageState extends State<RootPage> {
               "TrackExp",
               style: TextStyle(color: Colors.white),
             ),
-            const SizedBox(width: 20), // Adjust the spacing as needed
+            const SizedBox(width: 20),
             const Expanded(
               child: TextField(
                 style: TextStyle(color: Colors.white),
@@ -81,19 +79,29 @@ class _RootPageState extends State<RootPage> {
             icon: const Icon(Icons.date_range, size: 30, color: Colors.white),
           ),
           IconButton(
-            onPressed: () {
-              showDialog(
-                  context: context,
-                  builder: (BuildContext context) {
-                    return AlertDialog(
-                      content: AddTripForm(
-                        refreshTrips: refreshTrips,
-                      ),
-                    );
-                  });
+            onPressed: () async {
+              final result = await showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    content: AddTripForm(
+                      refreshTrips: () {
+                        // Temporary placeholder
+                        // Add your logic here
+                        return Future<void>.value();
+                      },
+                    ),
+                  );
+                },
+              );
+              if (result == true) {
+                // Refresh trips only if a new trip was added
+                setState(() {
+                  pages[0] = HomePage(key: UniqueKey()); // Force HomePage to rebuild
+                });
+              }
             },
-            icon: const Icon(Icons.add_box_outlined,
-                size: 30, color: Colors.white),
+            icon: const Icon(Icons.add_box_outlined, size: 30, color: Colors.white),
           ),
         ],
       ),
@@ -102,10 +110,8 @@ class _RootPageState extends State<RootPage> {
         fixedColor: const Color(0xFF58B7B1),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.edit_document), label: 'Analytics'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.settings), label: 'Settings'),
+          BottomNavigationBarItem(icon: Icon(Icons.edit_document), label: 'Analytics'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
         ],
         onTap: (int index) {
           setState(() {

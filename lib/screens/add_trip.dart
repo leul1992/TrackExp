@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:trackexp/services/database_helper.dart';
 import 'package:intl/intl.dart';
+import 'package:trackexp/models/trip.dart';
+import 'package:trackexp/services/hive_services.dart';
+import 'package:uuid/uuid.dart';
 
 class AddTripForm extends StatefulWidget {
   final Future<void> Function() refreshTrips;
-  
+
   const AddTripForm({super.key, required this.refreshTrips});
 
   @override
@@ -93,7 +95,7 @@ class _AddTripFormState extends State<AddTripForm> {
                 ),
                 onPressed: () async {
                   final String name = nameController.text;
-                  final double totalMoney = double.parse(moneyController.text);
+                  final double totalMoney = double.tryParse(moneyController.text) ?? 0.0;
 
                   // Format the start date and end date
                   final DateFormat formatter = DateFormat('yyyy-MM-dd');
@@ -102,34 +104,35 @@ class _AddTripFormState extends State<AddTripForm> {
                   final String endDateString =
                       endDate != null ? formatter.format(endDate!) : '';
 
-                  final int insertedId =
-                      await DatabaseHelper.instance.insertTrip({
-                    DatabaseHelper.columnTripName: name,
-                    DatabaseHelper.columnTripTotalMoney: totalMoney,
-                    DatabaseHelper.columnTripStartDate: startDateString,
-                    DatabaseHelper.columnTripEndDate: endDateString,
-                  });
-
-                  if (insertedId > 0) {
-                    // Show success message
+                  if (name.isEmpty || startDateString.isEmpty || endDateString.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Trip added successfully!'),
+                        content: Text('Please fill all fields'),
                       ),
                     );
-                    // Update the state to rerender the widget
-                    widget.refreshTrips();
-
-                    // Close the form
-                    Navigator.of(context).pop();
-                  } else {
-                    // Show error message
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Error adding trip!'),
-                      ),
-                    );
+                    return;
                   }
+
+                  // Create a new trip
+                  final trip = Trip(
+                    id: Uuid().v4(), // Generate a unique ID
+                    name: name,
+                    totalMoney: totalMoney,
+                    startDate: startDateString,
+                    endDate: endDateString,
+                  );
+
+                  // Insert the trip using HiveService
+                  await HiveService.insertTrip(trip);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Trip added successfully!'),
+                    ),
+                  );
+
+                  Navigator.pop(context, true); // Close the form and signal to refresh
+                  await widget.refreshTrips(); // Refresh the trips after adding
                 },
                 child: const Text(
                   'Add',

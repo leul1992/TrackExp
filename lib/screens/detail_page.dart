@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:trackexp/screens/add_expense.dart';
-import 'package:trackexp/services/database_helper.dart';
+import 'package:trackexp/services/hive_services.dart';
 import 'package:trackexp/services/trip_actions.dart';
+import 'package:trackexp/models/expense.dart';
+import 'package:trackexp/models/trip.dart';
 
 class DetailView extends StatefulWidget {
-  final int tripId;
+  final String tripId;
 
   const DetailView({super.key, required this.tripId});
 
@@ -13,8 +15,8 @@ class DetailView extends StatefulWidget {
 }
 
 class _DetailViewState extends State<DetailView> {
-  List<Map<String, dynamic>> expenses = [];
-  List<Map<String, dynamic>> tripRes = [];
+  List<Expense> expenses = [];
+  Trip? trip;
   double totalExpenses = 0;
   double totalSell = 0;
   double soldAmount = 0;
@@ -31,15 +33,15 @@ class _DetailViewState extends State<DetailView> {
   }
 
   Future<void> fetchTripAndExpenses() async {
-    await
-    fetchExpenses();
+    await fetchTrip();
+    await fetchExpenses();
     setState(() {});
   }
 
   Future<void> fetchTrip() async {
-    final tripResult = await DatabaseHelper.instance.getTrip(widget.tripId);
+    final fetchedTrip = HiveService.getTrip(widget.tripId);
     setState(() {
-      tripRes = [tripResult!];
+      trip = fetchedTrip;
     });
   }
 
@@ -54,10 +56,9 @@ class _DetailViewState extends State<DetailView> {
   }
 
   Future<void> fetchExpenses() async {
-    final expensesResult =
-        await DatabaseHelper.instance.getExpenses(widget.tripId);
+    final fetchedExpenses = HiveService.getExpenses(widget.tripId);
     setState(() {
-      expenses = expensesResult;
+      expenses = fetchedExpenses;
       calculateTotalExpenses();
       calculateTotalSell();
       calculateTotalSellExpense();
@@ -65,33 +66,24 @@ class _DetailViewState extends State<DetailView> {
   }
 
   void calculateTotalExpenses() {
-    totalExpenses = 0;
-    for (var expense in expenses) {
-      totalExpenses += expense['amount'];
-    }
+    totalExpenses = expenses.fold(0, (sum, item) => sum + item.amount);
   }
 
   void calculateTotalSellExpense() {
-    totalSellExpense = 0;
-    for (var expense in expenses) {
-      if (expense['is_sale'] == 1) {
-        totalSellExpense += expense['amount'];
-      }
-    }
+    totalSellExpense = expenses
+        .where((expense) => expense.isSale)
+        .fold(0, (sum, item) => sum + item.amount);
   }
 
   void calculateTotalSell() {
-    totalSell = 0;
-    for (var expense in expenses) {
-      totalSell += expense['sold_amount'];
-    }
+    totalSell = expenses.fold(0, (sum, item) => sum + item.soldAmount);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(tripRes.isNotEmpty ? tripRes[0]['name'] : ''),
+        title: Text(trip != null ? trip!.name : ''),
         automaticallyImplyLeading: false,
         leading: IconButton(
           onPressed: () {
@@ -110,7 +102,11 @@ class _DetailViewState extends State<DetailView> {
           IconButton(
             onPressed: () {
               // Handle edit action
-              TripActions.editTrip(context, widget.tripId, refreshExpenses: refreshExpenses,);
+              TripActions.editTrip(
+                context,
+                widget.tripId,
+                refreshExpenses: refreshExpenses,
+              );
             },
             icon: const Icon(Icons.edit_outlined, size: 32),
           ),
@@ -121,7 +117,7 @@ class _DetailViewState extends State<DetailView> {
                 builder: (BuildContext context) {
                   return AlertDialog(
                     content: AddExpense(
-                      tripId: tripRes[0]['id'],
+                      tripId: trip!.id,
                       refreshExpenses: refreshExpenses,
                     ),
                   );
@@ -149,7 +145,7 @@ class _DetailViewState extends State<DetailView> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Total Amount: ${tripRes.isNotEmpty ? tripRes[0]['total_money'] : ''}',
+                            'Total Amount: ${trip != null ? trip!.totalMoney : ''}',
                             style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w500),
@@ -168,15 +164,13 @@ class _DetailViewState extends State<DetailView> {
                         Row(
                           children: [
                             const Icon(
-                              Icons
-                                  .flight_takeoff, // Replace Icons.flight_takeoff with the appropriate icon
+                              Icons.flight_takeoff,
                               color: Colors.white,
-                              size: 24, // Adjust size as needed
+                              size: 24,
                             ),
-                            const SizedBox(
-                                width: 8), // Adjust spacing as needed
+                            const SizedBox(width: 8),
                             Text(
-                              '${tripRes.isNotEmpty ? tripRes[0]['start_date'] : ''}',
+                              '${trip != null ? trip!.startDate : ''}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w500,
@@ -185,18 +179,15 @@ class _DetailViewState extends State<DetailView> {
                           ],
                         ),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Icon(
-                              Icons
-                                  .flight_land, // Replace Icons.flight_land with the appropriate icon
+                              Icons.flight_land,
                               color: Colors.white,
-                              size: 24, // Adjust size as needed
+                              size: 24,
                             ),
-                            const SizedBox(
-                                width: 8), // Adjust spacing as needed
+                            const SizedBox(width: 8),
                             Text(
-                              '${tripRes.isNotEmpty ? tripRes[0]['end_date'] : ''}',
+                              '${trip != null ? trip!.endDate : ''}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w500,
@@ -204,13 +195,9 @@ class _DetailViewState extends State<DetailView> {
                             ),
                           ],
                         ),
-
-                        // Add more trip details as needed
                       ],
                     ),
-                    const SizedBox(
-                      height: 8.0,
-                    ),
+                    const SizedBox(height: 8.0),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -227,9 +214,7 @@ class _DetailViewState extends State<DetailView> {
                         ),
                       ],
                     ),
-                    const SizedBox(
-                      height: 8.0,
-                    ),
+                    const SizedBox(height: 8.0),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -239,7 +224,7 @@ class _DetailViewState extends State<DetailView> {
                               color: Colors.white, fontWeight: FontWeight.w500),
                         ),
                         Text(
-                          'Total Remain: ${((tripRes.isNotEmpty ? tripRes[0]['total_money'] : 0) - totalExpenses).toStringAsFixed(2)}',
+                          'Total Remain: ${((trip != null ? trip!.totalMoney : 0) - totalExpenses).toStringAsFixed(2)}',
                           style: const TextStyle(
                               color: Colors.white, fontWeight: FontWeight.w500),
                         )
@@ -261,7 +246,7 @@ class _DetailViewState extends State<DetailView> {
               itemCount: expenses.length,
               itemBuilder: (context, index) {
                 return ListTile(
-                  leading: expenses[index]['is_sale'] == 1
+                  leading: expenses[index].isSale
                       ? IconButton(
                           onPressed: () {
                             showDialog(
@@ -269,7 +254,7 @@ class _DetailViewState extends State<DetailView> {
                               builder: (BuildContext context) {
                                 return AlertDialog(
                                   title: Text(
-                                      '${expenses[index]['sold_amount'] > 0 ? "Update" : "Add"} Sold Amount ${expenses[index]['sold_amount'] > 0 ? "\nNow Sold at ${expenses[index]['sold_amount']}" : ""}'),
+                                      '${expenses[index].soldAmount > 0 ? "Update" : "Add"} Sold Amount ${expenses[index].soldAmount > 0 ? "\nNow Sold at ${expenses[index].soldAmount}" : ""}'),
                                   content: TextField(
                                     keyboardType: TextInputType.number,
                                     onChanged: (value) {
@@ -281,20 +266,16 @@ class _DetailViewState extends State<DetailView> {
                                   ),
                                   actions: <Widget>[
                                     TextButton(
-                                      onPressed: () {
-                                        // Update sold amount in the database
-                                        Map<String, dynamic> updatedExpense = {
-                                          'id': expenses[index]['id'],
-                                          'sold_amount': soldAmount,
-                                        };
-                                        DatabaseHelper.instance
-                                            .updateExpense(updatedExpense);
+                                      onPressed: () async {
+                                        // Update sold amount in the Hive
+                                        expenses[index].soldAmount = soldAmount;
+                                        await HiveService.updateExpense(expenses[index]);
                                         // Refresh expenses
                                         refreshExpenses();
                                         Navigator.of(context).pop();
                                       },
                                       child: Text(
-                                          expenses[index]['sold_amount'] > 0
+                                          expenses[index].soldAmount > 0
                                               ? "Update"
                                               : "Sell"),
                                     ),
@@ -308,8 +289,8 @@ class _DetailViewState extends State<DetailView> {
                       : const SizedBox(
                           width: 48,
                         ),
-                  title: Text(expenses[index]['name']),
-                  subtitle: Text('${expenses[index]['amount']}'),
+                  title: Text(expenses[index].name),
+                  subtitle: Text('${expenses[index].amount}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -321,14 +302,14 @@ class _DetailViewState extends State<DetailView> {
                               // Initialize controllers for text fields
                               TextEditingController nameController =
                                   TextEditingController(
-                                      text: expenses[index]['name']);
+                                      text: expenses[index].name);
                               TextEditingController amountController =
                                   TextEditingController(
-                                      text:
-                                          expenses[index]['amount'].toString());
+                                      text: expenses[index].amount.toString());
                               TextEditingController soldAmountController =
                                   TextEditingController(
-                                      text: expenses[index]['sold_amount']
+                                      text: expenses[index]
+                                          .soldAmount
                                           .toString());
 
                               return AlertDialog(
@@ -341,7 +322,7 @@ class _DetailViewState extends State<DetailView> {
                                       onChanged: (value) {
                                         // Update the name of the expense in the list
                                         setState(() {
-                                          expenses[index]['name'] = value;
+                                          expenses[index].name = value;
                                         });
                                       },
                                       decoration: const InputDecoration(
@@ -355,7 +336,7 @@ class _DetailViewState extends State<DetailView> {
                                       onChanged: (value) {
                                         // Update the amount of the expense in the list
                                         setState(() {
-                                          expenses[index]['amount'] =
+                                          expenses[index].amount =
                                               double.tryParse(value) ?? 0;
                                         });
                                       },
@@ -364,14 +345,14 @@ class _DetailViewState extends State<DetailView> {
                                         hintText: 'Enter expense amount',
                                       ),
                                     ),
-                                    if (expenses[index]['is_sale'] == 1)
+                                    if (expenses[index].isSale)
                                       TextFormField(
                                         controller: soldAmountController,
                                         keyboardType: TextInputType.number,
                                         onChanged: (value) {
                                           // Update the sold amount of the expense in the list
                                           setState(() {
-                                            expenses[index]['sold_amount'] =
+                                            expenses[index].soldAmount =
                                                 double.tryParse(value) ?? 0;
                                           });
                                         },
@@ -394,28 +375,18 @@ class _DetailViewState extends State<DetailView> {
                                                   soldAmountController.text) ??
                                               0;
 
-                                      // Create updated expense map
-                                      Map<String, dynamic> updatedExpense = {
-                                        'id': expenses[index]['id'],
-                                        'name': nameController.text,
-                                        'amount': updatedAmount,
-                                        'sold_amount': updatedSoldAmount,
-                                      };
+                                      // Update the expense in the list
+                                      expenses[index].name = nameController.text;
+                                      expenses[index].amount = updatedAmount;
+                                      expenses[index].soldAmount = updatedSoldAmount;
 
-                                      // Update expense in the database
-                                      int rowsAffected = await DatabaseHelper
-                                          .instance
-                                          .updateExpense(updatedExpense);
+                                      // Update expense in the Hive
+                                      await HiveService.updateExpense(expenses[index]);
 
-                                      if (rowsAffected > 0) {
-                                        // Refresh expenses if update was successful
-                                        refreshExpenses();
-                                        // Close the dialog
-                                        Navigator.of(context).pop();
-                                      } else {
-                                        // Handle update failure
-                                        // Show an error message or take appropriate action
-                                      }
+                                      // Refresh expenses if update was successful
+                                      refreshExpenses();
+                                      // Close the dialog
+                                      Navigator.of(context).pop();
                                     },
                                     child: const Text('Update'),
                                   ),
@@ -434,13 +405,12 @@ class _DetailViewState extends State<DetailView> {
                               return AlertDialog(
                                 title: const Text('Confirm Delete'),
                                 content: Text(
-                                    'Are you sure you want to delete ${expenses[index]['name']}?'),
+                                    'Are you sure you want to delete ${expenses[index].name}?'),
                                 actions: <Widget>[
                                   TextButton(
-                                    onPressed: () {
-                                      // Delete expense from the database
-                                      DatabaseHelper.instance
-                                          .deleteExpense(expenses[index]['id']);
+                                    onPressed: () async {
+                                      // Delete expense from the Hive
+                                      await HiveService.deleteExpense(expenses[index].id);
                                       // Refresh expenses
                                       refreshExpenses();
                                       Navigator.of(context).pop();

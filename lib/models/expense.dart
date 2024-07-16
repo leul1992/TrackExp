@@ -5,10 +5,10 @@ part 'expense.g.dart';
 @HiveType(typeId: 1)
 class Expense extends HiveObject {
   @HiveField(0)
-  int id;
+  String id;
 
   @HiveField(1)
-  int tripId;
+  String tripId;
 
   @HiveField(2)
   String name;

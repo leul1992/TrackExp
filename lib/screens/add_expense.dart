@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:trackexp/services/database_helper.dart';
+import 'package:trackexp/models/expense.dart';
+import 'package:trackexp/services/hive_services.dart';
+import 'package:uuid/uuid.dart';
 
 class AddExpense extends StatefulWidget {
-  final int tripId;
+  final String tripId;
   final Future<void> Function() refreshExpenses;
 
   const AddExpense(
@@ -69,39 +71,35 @@ class _AddExpenseState extends State<AddExpense> {
                 ),
                 onPressed: () async {
                   final String reason = reasonOfPayment.text;
-                  final String money = amount.text;
+                  final double money = double.tryParse(amount.text) ?? 0.0;
                   final bool toSell = toBeSold;
-                  final int id = widget.tripId;
-                  // Handle adding the expense here
-                  final int insertedId =
-                      await DatabaseHelper.instance.insertExpense({
-                    DatabaseHelper.columnExpenseTripId: id,
-                    DatabaseHelper.columnExpenseName: reason,
-                    DatabaseHelper.columnExpenseAmount: money,
-                    DatabaseHelper.columnExpenseIsSale: toSell ? 1 : 0,
-                    DatabaseHelper.columnExpenseSoldAmount: 0,
-                  });
-                  if (insertedId > 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Expense added successfully!'),
-                      ),
-                    );
-      
-                    widget.refreshExpenses();
-                    Navigator.of(context).pop(); // Close the pop-up
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Error adding expense!'),
-                      ),
-                    );
-                  }
+                  final String id = widget.tripId;
+
+                  // Create a new expense
+                  final expense = Expense(
+                    id: Uuid().v4(), // Generate a unique ID
+                    tripId: id,
+                    name: reason,
+                    amount: money,
+                    isSale: toSell,
+                    soldAmount: 0.0,
+                  );
+
+                  // Insert the expense using HiveService
+                  await HiveService.insertExpense(expense);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Expense added successfully!'),
+                    ),
+                  );
+
+                  widget.refreshExpenses();
+                  Navigator.of(context).pop(); // Close the pop-up
                 },
                 child: const Text(
                   'Add',
-                  style:
-                      TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                 ),
               ),
             ),

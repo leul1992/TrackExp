@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:trackexp/services/database_helper.dart';
+import 'package:trackexp/services/hive_services.dart';
+import 'package:trackexp/models/trip.dart';
 
 class EditTripDialog extends StatefulWidget {
-  final Map<String, dynamic> trip;
+  final Trip trip;
   final Function() refreshExpenses;
+
   const EditTripDialog(
       {super.key, required this.trip, required this.refreshExpenses});
 
@@ -22,10 +24,10 @@ class _EditTripDialogState extends State<EditTripDialog> {
   @override
   void initState() {
     super.initState();
-    nameController.text = widget.trip['name'];
-    totalMoneyController.text = widget.trip['total_money'].toString();
-    startDate = formatter.parse(widget.trip['start_date']);
-    endDate = formatter.parse(widget.trip['end_date']);
+    nameController.text = widget.trip.name;
+    totalMoneyController.text = widget.trip.totalMoney.toString();
+    startDate = DateTime.parse(widget.trip.startDate);
+    endDate = DateTime.parse(widget.trip.endDate);
   }
 
   @override
@@ -87,17 +89,17 @@ class _EditTripDialogState extends State<EditTripDialog> {
       actions: <Widget>[
         TextButton(
           onPressed: () async {
-            final Map<String, dynamic> updatedTrip = {
-              'id': widget.trip['id'],
-              'name': nameController.text,
-              'total_money': double.tryParse(totalMoneyController.text) ?? 0,
-              'start_date': formatter.format(startDate),
-              'end_date': formatter.format(endDate),
-            };
+            final updatedTrip = Trip(
+              id: widget.trip.id,
+              name: nameController.text,
+              totalMoney: double.tryParse(totalMoneyController.text) ?? 0,
+              startDate: startDate.toString(),
+              endDate: endDate.toString(),
+            );
 
-            // Update trip in the database
-            await DatabaseHelper.instance.updateTrip(updatedTrip);
-            
+            // Update trip in Hive
+            await HiveService.updateTrip(updatedTrip);
+
             // Show success message
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Trip updated successfully')),

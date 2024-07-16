@@ -1,38 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:trackexp/models/trip.dart';
 import 'package:trackexp/screens/detail_page.dart';
-import 'package:trackexp/services/database_helper.dart';
-
-enum TripStatus { notStarted, inProgress, ended }
-
-class Trip {
-  final int id;
-  final String name;
-  final double totalMoney;
-  final String startDate;
-  final String endDate;
-
-  Trip({
-    required this.id,
-    required this.name,
-    required this.totalMoney,
-    required this.startDate,
-    required this.endDate,
-  });
-
-  TripStatus getStatus() {
-    final now = DateTime.now();
-    final tripStartDate = DateTime.parse(startDate);
-    final tripEndDate = DateTime.parse(endDate);
-
-    if (now.isBefore(tripStartDate)) {
-      return TripStatus.notStarted;
-    } else if (now.isAfter(tripStartDate) && now.isBefore(tripEndDate)) {
-      return TripStatus.inProgress;
-    } else {
-      return TripStatus.ended;
-    }
-  }
-}
+import 'package:trackexp/services/hive_services.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -42,14 +11,27 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  Future<List<Trip>>? tripsFuture;
+
   @override
   void initState() {
     super.initState();
     _refreshTrips();
   }
+
   Future<void> _refreshTrips() async {
     setState(() {
+      tripsFuture = HiveService.getTrips();
     });
+  }
+
+  Future<void> _navigateAndRefreshOnReturn(BuildContext context, Widget page) async {
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => page),
+    );
+    if (result == true) {
+      _refreshTrips(); // Refresh trips after returning from AddTripForm
+    }
   }
 
   @override
@@ -57,77 +39,62 @@ class _HomePageState extends State<HomePage> {
     return RefreshIndicator(
       onRefresh: _refreshTrips,
       child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 1.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  IconButton(
-                    onPressed: _refreshTrips,
-                    icon: const Icon(Icons.refresh),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-      child: FutureBuilder<List<Map<String, dynamic>>>(
-        future: DatabaseHelper.instance.getTrips(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return const Center(child: Text('Error'));
-          } else if (snapshot.data == null || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No data available'));
-          } else {
-            final trips = snapshot.data!
-                .map((e) => Trip(
-                      id: e['id'],
-                      name: e['name'],
-                      totalMoney: e['total_money'],
-                      startDate: e['start_date'],
-                      endDate: e['end_date'],
-                    ))
-                .toList();
-            return Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 8.0,
-                  mainAxisSpacing: 8.0,
-                  childAspectRatio: 2.0, // Adjust this value as needed for card aspect ratio
-                ),
-                itemCount: trips.length,
-                itemBuilder: (context, index) {
-                  return TripCard(
-                    trip: trips[index],
-                    key: ValueKey<int>(trips[index].id), // Use ValueKey with trip ID
+        children: [
+          
+          Expanded(
+            child: FutureBuilder<List<Trip>>(
+              future: tripsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasError) {
+                  return const Center(child: Text('Error'));
+                } else if (snapshot.data == null || snapshot.data!.isEmpty) {
+                  return const Center(child: Text('No data available'));
+                } else {
+                  final trips = snapshot.data!;
+                  return Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: GridView.builder(
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 8.0,
+                        mainAxisSpacing: 8.0,
+                        childAspectRatio: 2.0,
+                      ),
+                      itemCount: trips.length,
+                      itemBuilder: (context, index) {
+                        return TripCard(
+                          trip: trips[index],
+                          key: ValueKey(trips[index].id),
+                          onTripSelected: () {
+                            _navigateAndRefreshOnReturn(context, DetailView(key: ValueKey(trips[index].id), tripId: trips[index].id));
+                          },
+                        );
+                      },
+                    ),
                   );
-                },
-              ),
-            );
-          }
-        },
+                }
+              },
+            ),
           ),
+        ],
       ),
-          ]
-    ),
     );
   }
 }
 
-
 class TripCard extends StatelessWidget {
   final Trip trip;
+  final VoidCallback onTripSelected;
 
-  const TripCard({super.key, required this.trip});
+  const TripCard({super.key, required this.trip, required this.onTripSelected});
 
   @override
   Widget build(BuildContext context) {
-    Color cardColor;
-    Color indicatorColor;
+    late Color cardColor;
+    late Color indicatorColor;
+
     switch (trip.getStatus()) {
       case TripStatus.notStarted:
         cardColor = const Color.fromARGB(255, 196, 249, 196);
@@ -140,6 +107,10 @@ class TripCard extends StatelessWidget {
       case TripStatus.ended:
         cardColor = const Color.fromARGB(255, 250, 214, 214);
         indicatorColor = Colors.red;
+        break;
+      default:
+        cardColor = Colors.white;
+        indicatorColor = Colors.grey;
         break;
     }
 
@@ -163,15 +134,7 @@ class TripCard extends StatelessWidget {
                 Text(trip.startDate),
               ],
             ),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (BuildContext context) {
-                    return DetailView(key: ValueKey<int>(trip.id), tripId: trip.id);
-                  },
-                ),
-              );
-            },
+            onTap: onTripSelected,
           ),
         ),
         Positioned(

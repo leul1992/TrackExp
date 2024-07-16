@@ -1,27 +1,30 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:trackexp/services/database_helper.dart';
 import 'package:trackexp/screens/edit_trip_dialog.dart';
+import 'package:trackexp/services/hive_services.dart';
 
 class TripActions {
-  static Future<void> editTrip(BuildContext context, int tripId, {required Function() refreshExpenses}) async {
+  static Future<void> editTrip(BuildContext context, String tripId, {required Function() refreshExpenses}) async {
     // Fetch trip details
-    final trip = await DatabaseHelper.instance.getTrip(tripId);
+    final tripBox = HiveService.getTripBox();
+    final trip = tripBox.get(tripId);
     if (trip == null) {
       // Handle error: Trip not found
       return;
     }
 
     await showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return EditTripDialog(
-            trip: trip,
-            refreshExpenses: refreshExpenses);
-        });
+      context: context,
+      builder: (BuildContext context) {
+        return EditTripDialog(
+          trip: trip,
+          refreshExpenses: refreshExpenses,
+        );
+      },
+    );
+    Navigator.pop(context, true); // Signal to refresh the list
   }
 
-  static Future<void> deleteTrip(BuildContext context, int tripId) async {
+  static Future<void> deleteTrip(BuildContext context, String tripId) async {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -32,21 +35,19 @@ class TripActions {
             TextButton(
               onPressed: () async {
                 // Delete trip and associated expenses
-                await DatabaseHelper.instance
-                    .deleteTripAndAssociatedExpenses(tripId);
-                // Show success message or navigate to previous screen
-                Navigator.of(context).pop();
-                Navigator.of(context)
-                    .pop(); // Assuming you're navigating back to the previous screen
+                await HiveService.deleteTripAndAssociatedExpenses(tripId);
+                // Show success message
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Trip deleted successfully')),
                 );
+                Navigator.pop(context, true); // Close dialog and signal refresh
+                Navigator.pop(context, true); // Close detail page and signal refresh
               },
               child: const Text('Delete'),
             ),
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop();
+                Navigator.pop(context, false); // Close dialog without refreshing
               },
               child: const Text('Cancel'),
             ),
