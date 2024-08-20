@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "895974675686",
+    "project_id": "trackexp-flutter",
+    "storage_bucket": "trackexp-flutter.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:895974675686:android:46a283e20c235a573d1727",
+        "android_client_info": {
+          "package_name": "com.example.trackexp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC7sC1YgbZ8-V5uOdRhPygYnMusGeq1qy0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

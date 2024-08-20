@@ -30,4 +30,15 @@ class Expense extends HiveObject {
     required this.isSale,
     required this.soldAmount,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'trip_id': tripId,
+      'name': name,
+      'amount': amount,
+      'is_sale': isSale,
+      'sold_amount': soldAmount,
+    };
+  }
 }

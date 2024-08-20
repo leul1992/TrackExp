@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:hive/hive.dart';
 import 'package:trackexp/models/trip.dart';
 import 'package:trackexp/models/expense.dart';
@@ -39,7 +41,10 @@ class HiveService {
   // Get all Trips
   static Future<List<Trip>> getTrips() async {
     final tripBox = getTripBox();
-    print('trips: ${tripBox.values.toList()}');
+    for (var trip in tripBox.values) {
+  final tripJson = jsonEncode(trip.toJson());
+  print('data json: $tripJson');
+}
     return tripBox.values.toList();
   }
 
@@ -71,6 +76,7 @@ class HiveService {
 
   // Delete Trip and associated Expenses
   static Future<void> deleteTripAndAssociatedExpenses(String tripId) async {
+    print('final step');
     final expenseBox = getExpenseBox();
     final tripBox = getTripBox();
 

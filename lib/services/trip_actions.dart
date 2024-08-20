@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:trackexp/screens/edit_trip_dialog.dart';
+import 'package:trackexp/screens/local/edit_trip_dialog.dart';
 import 'package:trackexp/services/hive_services.dart';
 
 class TripActions {
-  static Future<void> editTrip(BuildContext context, String tripId, {required Function() refreshExpenses}) async {
+  static Future<void> editTrip(BuildContext context, String tripId,
+      {required Function() refreshExpenses}) async {
     // Fetch trip details
     final tripBox = HiveService.getTripBox();
     final trip = tripBox.get(tripId);
@@ -21,10 +22,10 @@ class TripActions {
         );
       },
     );
-    Navigator.pop(context, true); // Signal to refresh the list
   }
 
   static Future<void> deleteTrip(BuildContext context, String tripId) async {
+    print("another one");
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -41,13 +42,15 @@ class TripActions {
                   const SnackBar(content: Text('Trip deleted successfully')),
                 );
                 Navigator.pop(context, true); // Close dialog and signal refresh
-                Navigator.pop(context, true); // Close detail page and signal refresh
+                Navigator.pop(
+                    context, true); // Close detail page and signal refresh
               },
               child: const Text('Delete'),
             ),
             TextButton(
               onPressed: () {
-                Navigator.pop(context, false); // Close dialog without refreshing
+                Navigator.pop(
+                    context, false); // Close dialog without refreshing
               },
               child: const Text('Cancel'),
             ),

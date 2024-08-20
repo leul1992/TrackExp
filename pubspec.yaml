@@ -46,6 +46,17 @@ dependencies:
   build_runner: ^2.4.9
   mongo_dart: ^0.10.3
   uuid: ^4.4.2
+  web_socket_channel: ^2.4.5
+  fluttertoast: ^8.2.6
+  provider: ^6.1.2
+  flutter_web_auth: ^0.5.0
+  firebase_core: ^3.2.0
+  firebase_auth: ^5.1.2
+  google_sign_in: ^6.2.1
+  shared_preferences: ^2.2.3
+  font_awesome_flutter: ^10.7.0
+  flutter_svg: ^2.0.10+1
+  flutter_date_range_picker: ^0.1.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -87,8 +98,8 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/*
+  assets:
+    - images/icons/android_light_rd_ctn.svg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware

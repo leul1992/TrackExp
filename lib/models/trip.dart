@@ -42,4 +42,30 @@ class Trip extends HiveObject {
       return TripStatus.ended;
     }
   }
+
+  Trip copyWith({
+    String? id,
+    String? name,
+    double? totalMoney,
+    String? startDate,
+    String? endDate,
+  }) {
+    return Trip(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      totalMoney: totalMoney ?? this.totalMoney,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'total_money': totalMoney,
+      'start_date': startDate,
+      'end_date': endDate,
+    };
+  }
 }
