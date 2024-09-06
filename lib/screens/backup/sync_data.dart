@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:trackexp/models/expense.dart';
 import 'package:trackexp/models/trip.dart';
-import 'package:trackexp/screens/backup/detail_change.dart';
+import 'package:trackexp/screens/backup/discrepancy_detail_page.dart';
 import 'package:trackexp/services/hive_services.dart';
 import 'package:trackexp/services/backup_service.dart';
 
@@ -22,62 +25,194 @@ class _SyncPageState extends State<SyncPage> {
 
   Future<void> _fetchData() async {
     try {
-      // Fetch local data
-      List<Trip> localTripsData = await HiveService.getTrips();
-      List<Map<String, dynamic>> localTrips =
-          localTripsData.map((trip) => trip.toJson()).toList();
+      // Fetch local data for trips and expenses
+      final localTripsData = await HiveService.getTrips();
+      final localExpensesData = await HiveService.getAllExpenses();
 
-      // Fetch remote data
-      Map<String, dynamic> remoteData = await BackupService.fetchData(context);
-      List<Map<String, dynamic>> remoteTrips =
-          List<Map<String, dynamic>>.from(remoteData['trips']);
+      // Fetch remote data for trips and expenses
+      final remoteData = await BackupService.fetchData(context);
 
-      // Find discrepancies
-      _findSyncIssues(localTrips, remoteTrips);
+      // Find discrepancies for both trips and expenses
+      _findSyncIssues(
+        localTripsData.map((trip) => trip.toJson()).toList(),
+        List<Map<String, dynamic>>.from(remoteData['trips']),
+        localExpensesData.map((expense) => expense.toJson()).toList(),
+        List<Map<String, dynamic>>.from(remoteData['expenses']),
+      );
     } catch (e) {
-      // Handle error
-      print("Error fetching data: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching data: $e')),
+      );
     }
   }
 
-  void _findSyncIssues(List<Map<String, dynamic>> localTrips,
-      List<Map<String, dynamic>> remoteTrips) {
-    Set localIds = localTrips.map((trip) => trip['id']).toSet();
-    Set remoteIds = remoteTrips.map((trip) => trip['_id']).toSet();
+  void _findSyncIssues(
+    List<Map<String, dynamic>> localTrips,
+    List<Map<String, dynamic>> remoteTrips,
+    List<Map<String, dynamic>> localExpenses,
+    List<Map<String, dynamic>> remoteExpenses,
+  ) async {
+    // Mark this function as async
+    final syncIssues = <String, Map<String, dynamic>>{};
 
-    List<Map<String, dynamic>> syncIssues = [];
+    // Check for discrepancies in trips
+    _findTripSyncIssues(localTrips, remoteTrips, syncIssues);
+
+    // Check for discrepancies in expenses and associate them with the corresponding trip
+    await _findExpenseSyncIssues(
+        localExpenses, remoteExpenses, syncIssues); // Use await here
+
+    setState(() {
+      this.syncIssues = syncIssues.values.toList();
+    });
+  }
+
+  void _findTripSyncIssues(
+    List<Map<String, dynamic>> localTrips,
+    List<Map<String, dynamic>> remoteTrips,
+    Map<String, Map<String, dynamic>> syncIssues,
+  ) {
+    final localTripIds = localTrips.map((trip) => trip['id']).toSet();
+    final remoteTripIds = remoteTrips.map((trip) => trip['_id']).toSet();
 
     // Local Only
-    syncIssues.addAll(localTrips
-        .where((trip) => !remoteIds.contains(trip['id']))
-        .map((trip) => {'source': 'local', 'localData': trip})
-        .toList());
+    for (var trip
+        in localTrips.where((trip) => !remoteTripIds.contains(trip['id']))) {
+      syncIssues[trip['id']] = {
+        'source': 'local',
+        'localData': trip,
+        'remoteData': null,
+        'expenses': [],
+      };
+    }
 
     // Remote Only
-    syncIssues.addAll(remoteTrips
-        .where((trip) => !localIds.contains(trip['_id']))
-        .map((trip) => {'source': 'remote', 'remoteData': trip})
-        .toList());
+    for (var trip
+        in remoteTrips.where((trip) => !localTripIds.contains(trip['_id']))) {
+      syncIssues[trip['_id']] = {
+        'source': 'remote',
+        'localData': null,
+        'remoteData': trip,
+        'expenses': [],
+      };
+    }
 
     // Conflicts
     for (var localTrip in localTrips) {
-      var matchingRemoteTrip = remoteTrips.firstWhere(
-          (trip) => trip['_id'] == localTrip['id'],
-          orElse: () => {});
+      final matchingRemoteTrip = remoteTrips.firstWhere(
+        (trip) => trip['_id'] == localTrip['id'],
+        orElse: () => {},
+      );
 
       if (matchingRemoteTrip.isNotEmpty &&
           !_areTripsEqual(localTrip, matchingRemoteTrip)) {
-        syncIssues.add({
+        syncIssues[localTrip['id']] = {
           'source': 'conflict',
           'localData': localTrip,
           'remoteData': matchingRemoteTrip,
+          'expenses': [],
+        };
+      }
+    }
+  }
+
+  Future<void> _findExpenseSyncIssues(
+    List<Map<String, dynamic>> localExpenses,
+    List<Map<String, dynamic>> remoteExpenses,
+    Map<String, Map<String, dynamic>> syncIssues,
+  ) async {
+    final localExpenseIds =
+        localExpenses.map((expense) => expense['id']).toSet();
+    final remoteExpenseIds =
+        remoteExpenses.map((expense) => expense['_id']).toSet();
+
+    for (var expense in localExpenses
+        .where((expense) => !remoteExpenseIds.contains(expense['id']))) {
+      final tripId = expense['trip_id'];
+
+      // Fetch remote data asynchronously before adding to syncIssue
+      final localTripData = HiveService.getTrip(tripId)?.toJson();
+      final remoteTripData =
+          await BackupService.getSpecificData("trips", tripId);
+
+      var syncIssue = syncIssues.putIfAbsent(
+        tripId,
+        () => {
+          'source': 'local',
+          'localData': localTripData,
+          'remoteData': remoteTripData,
+          'expenses': [],
+        },
+      );
+
+      syncIssue['expenses'].add({
+        'source': 'local',
+        'localData': expense,
+        'remoteData': null,
+      });
+    }
+
+    for (var expense in remoteExpenses
+        .where((expense) => !localExpenseIds.contains(expense['_id']))) {
+      final tripId = expense['trip_id'];
+
+      // Fetch remote data asynchronously before adding to syncIssue
+      final localTripData = HiveService.getTrip(tripId)?.toJson();
+      final remoteTripData =
+          await BackupService.getSpecificData("trips", tripId);
+
+      var syncIssue = syncIssues.putIfAbsent(
+        tripId,
+        () => {
+          'source': 'remote',
+          'localData': localTripData,
+          'remoteData': remoteTripData,
+          'expenses': [],
+        },
+      );
+
+      syncIssue['expenses'].add({
+        'source': 'remote',
+        'localData': null,
+        'remoteData': expense,
+      });
+    }
+
+    for (var localExpense in localExpenses) {
+      final matchingRemoteExpense = remoteExpenses.firstWhere(
+        (expense) => expense['_id'] == localExpense['id'],
+        orElse: () => {},
+      );
+
+      if (matchingRemoteExpense.isNotEmpty &&
+          !_areExpensesEqual(localExpense, matchingRemoteExpense)) {
+        final tripId = localExpense['trip_id'];
+
+        // Fetch remote data asynchronously before adding to syncIssue
+        final localTripData = HiveService.getTrip(tripId)?.toJson();
+        final remoteTripData =
+            await BackupService.getSpecificData("trips", tripId);
+
+        var syncIssue = syncIssues.putIfAbsent(
+          tripId,
+          () => {
+            'source': 'conflict',
+            'localData': localTripData,
+            'remoteData': remoteTripData,
+            'expenses': [],
+          },
+        );
+
+        syncIssue['expenses'].add({
+          'source': 'conflict',
+          'localData': localExpense,
+          'remoteData': matchingRemoteExpense,
         });
       }
     }
 
     setState(() {
-      print("sync issue $syncIssues");
-      this.syncIssues = syncIssues;
+      syncIssues.values.toList();
     });
   }
 
@@ -86,6 +221,14 @@ class _SyncPageState extends State<SyncPage> {
         local['start_date'] == remote['start_date'] &&
         local['end_date'] == remote['end_date'] &&
         local['total_money'] == remote['total_money'];
+  }
+
+  bool _areExpensesEqual(
+      Map<String, dynamic> local, Map<String, dynamic> remote) {
+    return local['name'] == remote['name'] &&
+        local['amount'] == remote['amount'] &&
+        local['is_sale'] == remote['is_sale'] &&
+        local['sold_amount'] == remote['sold_amount'];
   }
 
   @override
@@ -98,9 +241,11 @@ class _SyncPageState extends State<SyncPage> {
               itemBuilder: (context, index) {
                 final issue = syncIssues[index];
                 final trip = issue['localData'] ?? issue['remoteData'];
+                final expenses =
+                    List<Map<String, dynamic>>.from(issue['expenses']);
 
                 return ListTile(
-                  title: Text(trip['name'] ?? 'Unknown'),
+                  title: Text(trip['name']),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -108,6 +253,7 @@ class _SyncPageState extends State<SyncPage> {
                         builder: (context) => DiscrepancyDetailPage(
                           localData: issue['localData'],
                           remoteData: issue['remoteData'],
+                          expenses: expenses,
                         ),
                       ),
                     );

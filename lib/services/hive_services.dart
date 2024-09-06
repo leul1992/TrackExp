@@ -41,10 +41,6 @@ class HiveService {
   // Get all Trips
   static Future<List<Trip>> getTrips() async {
     final tripBox = getTripBox();
-    for (var trip in tripBox.values) {
-  final tripJson = jsonEncode(trip.toJson());
-  print('data json: $tripJson');
-}
     return tripBox.values.toList();
   }
 
@@ -60,6 +56,10 @@ class HiveService {
     return expenseBox.values
         .where((expense) => expense.tripId == tripId)
         .toList();
+  }
+  static Future<List<Expense>> getAllExpenses() async {
+    var box = await Hive.openBox<Expense>('expenses');
+    return box.values.toList();
   }
 
   // Update Trip

@@ -79,10 +79,11 @@ class AuthService {
     }
   }
 
-  Future<bool> _checkForScheduledDeletion(User user, BuildContext context) async {
+  Future<bool> _checkForScheduledDeletion(
+      User user, BuildContext context) async {
     final idToken = await user.getIdToken();
     final response = await http.get(
-      Uri.parse('http://192.168.188.101:8000/api/check_scheduled_deletion/'),
+      Uri.parse('http://192.168.1.4:8000/api/check_scheduled_deletion/'),
       headers: {
         'Authorization': 'Bearer $idToken',
       },
@@ -103,7 +104,7 @@ class AuthService {
   Future<void> _reactivateAccount(User user) async {
     final idToken = await user.getIdToken();
     final response = await http.post(
-      Uri.parse('http://192.168.188.101:8000/api/reactivate_account/'),
+      Uri.parse('http://192.168.1.4:8000/api/reactivate_account/'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $idToken',
@@ -137,7 +138,7 @@ class AuthService {
 
     final idToken = await user.getIdToken();
     final response = await http.post(
-      Uri.parse('http://192.168.188.101:8000/api/backup_user_data/'),
+      Uri.parse('http://192.168.1.4:8000/api/backup_user_data/'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $idToken',
@@ -169,28 +170,29 @@ class AuthService {
 
   Future<bool> _showReactivationDialog(BuildContext context) async {
     return await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Reactivate Account'),
-          content: const Text(
-              'Your account is scheduled for deletion. Would you like to reactivate it?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('No'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Yes'),
-            ),
-          ],
-        );
-      },
-    ) ?? false;
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text('Reactivate Account'),
+              content: const Text(
+                  'Your account is scheduled for deletion. Would you like to reactivate it?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('No'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Yes'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
   }
 
-   Future<void> scheduleAccountDeletion(CustomUser user) async {
+  Future<void> scheduleAccountDeletion(CustomUser user) async {
     final response = await http.post(
       Uri.parse('http://your-backend-url/schedule_account_deletion/'),
       headers: {

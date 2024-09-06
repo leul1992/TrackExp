@@ -5,7 +5,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 import pymongo
-from bson import ObjectId
+from bson import ObjectId, errors
 from .models import ScheduledDeletion
 from rest_framework.views import APIView
 
@@ -43,8 +43,6 @@ def backup_user_data(request):
         print(f'User updated with email {email}')
 
     return Response({'status': 'success'})
-
-
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -137,7 +135,7 @@ def delete_user_data(request):
     deletion = ScheduledDeletion.objects.filter(user=user).first()
     if deletion and not deletion.is_past_due():
         return Response({'error': 'Account is scheduled for deletion, but the 30-day period has not passed yet.'}, status=403)
-    
+
     # MongoDB deletion
     users_collection = mongo_db.users
     result = users_collection.delete_one({'email': user.email})
@@ -150,39 +148,98 @@ def delete_user_data(request):
     user.delete()
 
     return Response({'status': 'success', 'message': 'User account and data deleted successfully.'})
+
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
 def update_data(request, data_type, data_id):
     user = request.user
-    data = request.data
 
+    # Validate the data_type
     if data_type not in ['trips', 'expenses']:
         return Response({'error': 'Invalid data type'}, status=400)
 
+    # Fetch the appropriate collection based on data_type
     collection = mongo_db[data_type]
+
+    # Validate the incoming data
+    data = request.data
+    if not isinstance(data, dict):
+        return Response({'error': f'Invalid {data_type} data'}, status=400)
+
+    # Try to convert data_id to ObjectId if it's a valid ObjectId
+    try:
+        object_id = ObjectId(data_id)
+    except errors.InvalidId:
+        object_id = data_id  # If it's not a valid ObjectId, treat it as a string
+
+    # Update the data in the database
     result = collection.update_one(
-        {'_id': ObjectId(data_id), 'user_id': str(user.id)},
+        {'_id': object_id, 'user_id': str(user.id)},
         {'$set': data}
     )
 
     if result.matched_count == 0:
-        return Response({'error': 'Data not found or unauthorized'}, status=404)
+        return Response({'error': f'{data_type.capitalize()} not found or unauthorized'}, status=404)
 
-    return Response({'status': 'success', 'message': f'{data_type[:-1]} updated successfully'})
+    return Response({'status': 'success', 'message': f'{data_type.capitalize()} updated successfully'})
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def fetch_specific_data(request, data_type, data_id):
     user = request.user
-
     if data_type not in ['trips', 'expenses']:
         return Response({'error': 'Invalid data type'}, status=400)
 
     collection = mongo_db[data_type]
-    data = collection.find_one({'_id': ObjectId(data_id), 'user_id': str(user.id)})
+
+    try:
+        # Try to convert data_id to ObjectId
+        data_id = ObjectId(data_id)
+    except errors.InvalidId:
+        # If it's not a valid ObjectId, leave it as a string
+        pass
+
+    # Find the document by _id and user_id
+    data = collection.find_one({'_id': data_id, 'user_id': str(user.id)})
 
     if not data:
         return Response({'error': 'Data not found or unauthorized'}, status=404)
 
-    data['_id'] = str(data['_id'])  # Convert ObjectId to string
+    data['_id'] = str(data['_id'])  # Convert ObjectId to string for JSON response
     return JsonResponse(data)
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_data(request, data_type, data_id):
+    user = request.user
+
+    # Validate the data_type
+    if data_type not in ['trips', 'expenses']:
+        return Response({'error': 'Invalid data type'}, status=400)
+
+    # Fetch the appropriate collection based on data_type
+    collection = mongo_db[data_type]
+
+    try:
+        # Try to convert data_id to ObjectId
+        object_id = ObjectId(data_id)
+    except errors.InvalidId:
+        # If it's not a valid ObjectId, treat it as a string
+        object_id = data_id
+
+    # Find the document by _id and user_id
+    document = collection.find_one({'_id': object_id, 'user_id': str(user.id)})
+
+    if not document:
+        return Response({'error': 'Data not found or unauthorized'}, status=404)
+
+    if data_type == 'trips':
+        # Delete all expenses associated with the trip
+        expenses_collection = mongo_db.expenses
+        expenses_collection.delete_many({'trip_id': str(object_id), 'user_id': str(user.id)})
+
+    # Delete the main document
+    collection.delete_one({'_id': object_id, 'user_id': str(user.id)})
+
+    return Response({'status': 'success', 'message': f'{data_type.capitalize()} and associated data deleted successfully.'})

@@ -12,7 +12,7 @@ SECRET_KEY = 'django-insecure-mrc3j-0^xq2mc&0n=z59=bemt3y6!h_3)+w*q0@$fpo890lvv7
 
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '192.168.188.101']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '192.168.1.4']
 
 AUTHENTICATION_backend = [
     'django.contrib.auth.backend.ModelBackend',

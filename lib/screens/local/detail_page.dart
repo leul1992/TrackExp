@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:trackexp/screens/local/add_expense.dart';
 import 'package:trackexp/services/hive_services.dart';
@@ -101,7 +103,7 @@ class _DetailViewState extends State<DetailView> {
               print("Delete trip ${widget.tripId}");
               await TripActions.deleteTrip(context, widget.tripId);
               widget.onTripUpdated(); // Trigger the refresh on HomePage
-                        },
+            },
             icon: const Icon(Icons.folder_delete_outlined, size: 32),
           ),
           IconButton(
@@ -113,7 +115,7 @@ class _DetailViewState extends State<DetailView> {
                 refreshExpenses: refreshExpenses,
               );
               widget.onTripUpdated(); // Trigger the refresh on HomePage
-                        },
+            },
             icon: const Icon(Icons.edit_outlined, size: 32),
           ),
           IconButton(

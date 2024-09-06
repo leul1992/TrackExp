@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:trackexp/provider/login_state_provider.dart';
+import 'package:trackexp/screens/backup/fetch_backupdata.dart';
 import 'package:trackexp/services/auth.dart';
 
 class ProfileSidebar extends StatelessWidget {
@@ -81,6 +82,7 @@ class ProfileSidebar extends StatelessWidget {
               title: const Text("Fetch Backups"),
               onTap: () {
                 // Implement fetch backups logic here
+                Navigator.push(context, MaterialPageRoute(builder: (context) => BackupDataPage()));
               },
             ),
             ListTile(
