@@ -12,7 +12,7 @@ SECRET_KEY = 'django-insecure-mrc3j-0^xq2mc&0n=z59=bemt3y6!h_3)+w*q0@$fpo890lvv7
 
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '192.168.1.4']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '192.168.1.7']
 
 AUTHENTICATION_backend = [
     'django.contrib.auth.backend.ModelBackend',
@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'dj_rest_auth',
     'rest_framework_simplejwt',
+    'django_celery_beat',
 ]
 
 MIDDLEWARE = [
@@ -135,5 +136,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_USE_JWT = True
 ACCOUNT_LOGOUT_ON_GET = True
+
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
 
 CORS_ALLOW_ALL_ORIGINS = True  # Added CORS settings to allow all origins

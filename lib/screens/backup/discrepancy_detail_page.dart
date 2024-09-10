@@ -40,7 +40,6 @@ class _DiscrepancyDetailPageState extends State<DiscrepancyDetailPage> {
     super.initState();
     _updateMergedControllers();
     if (!widget.allowCategoryToggle) {
-      print("expenses in init: ${widget.remoteData}");
       _currentCategory = "Expenses";
     }
   }
@@ -135,13 +134,27 @@ class _DiscrepancyDetailPageState extends State<DiscrepancyDetailPage> {
       }
     } else if (_currentCategory == "Expenses") {
       // sync for expenses
+      // Helper function to convert value to bool
+bool _parseBool(dynamic value) {
+  if (value == null) return false;
+  if (value is bool) return value;
+  if (value is String) {
+    // Handle common string representations
+    return value.toLowerCase() == 'true';
+  }
+  if (value is int) {
+    // Handle integer representations (0 and 1)
+    return value != 0;
+  }
+  return false; // Default value for unsupported types
+}
       final mergedExpenseData = {
-        '_id': widget.localData?['id'] ?? widget.remoteData?['id'],
+        '_id': widget.localData?['id'] ?? widget.remoteData?['_id'],
         'trip_id':
             widget.localData?['trip_id'] ?? widget.remoteData?['trip_id'],
         'name': _mergedNameController.text,
         'amount': double.tryParse(_mergedTotalMoneyController.text) ?? 0.0,
-        'is_sale': _mergedStartDateOrIsSaleController.text == 'true',
+        'is_sale': _parseBool(_mergedStartDateOrIsSaleController.text),
         'sold_amount':
             double.tryParse(_mergedEndDateOrSoldAmountController.text) ?? 0.0,
       };

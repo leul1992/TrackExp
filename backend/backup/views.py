@@ -8,6 +8,8 @@ import pymongo
 from bson import ObjectId, errors
 from .models import ScheduledDeletion
 from rest_framework.views import APIView
+from django.utils.timezone import now
+from datetime import timedelta
 
 # Initialize MongoDB client
 mongo_client = pymongo.MongoClient(settings.MONGODB_SETTINGS['host'])
@@ -97,34 +99,34 @@ def fetch_data(request):
 
     return JsonResponse({"trips": trips, "expenses": expenses})
 
-class ScheduleAccountDeletionView(APIView):
-    permission_classes = [IsAuthenticated]
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def schedule_account_deletion(request):
+    user = request.user
+    user.scheduled_deletion_date = now() + timedelta(days=30)
+    user.save()
+    return Response({'status': 'success'})
 
-    def post(self, request):
-        user = request.user
-        deletion, created = ScheduledDeletion.objects.get_or_create(user=user)
-        deletion.schedule_deletion()
-        return Response({'status': 'success', 'message': 'Account deletion scheduled in 30 days.'})
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def check_scheduled_deletion(request):
+    user = request.user
+    if user.scheduled_deletion_date and user.scheduled_deletion_date > now():
+        time_left = (user.scheduled_deletion_date - now()).days
+        return Response({
+            'scheduled_for_deletion': True,
+            'days_remaining': time_left
+        })
+    return Response({'scheduled_for_deletion': False})
 
-class CheckAndReactivateAccountView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        user = request.user
-        deletion = ScheduledDeletion.objects.filter(user=user).first()
-
-        if deletion and deletion.is_past_due():
-            return Response({'error': 'Account deletion already processed.'}, status=403)
-
-        if deletion and not deletion.is_past_due():
-            reactivate = request.data.get('reactivate', False)
-            if reactivate:
-                deletion.delete()
-                return Response({'status': 'success', 'message': 'Account reactivated.'})
-            else:
-                return Response({'message': 'Account not reactivated.'}, status=403)
-
-        return Response({'message': 'Account is active.'})
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def reactivate_account(request):
+    user = request.user
+    print(user.scheduled_deletion_date)
+    user.scheduled_deletion_date = None  # Clear scheduled deletion
+    user.save()
+    return Response({'status': 'success'})
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])

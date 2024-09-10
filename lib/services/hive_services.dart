@@ -10,7 +10,6 @@ class HiveService {
 
   static Future<void> openBoxes() async {
     // Register adapters only if not registered
-    print('opeing box');
     if (!Hive.isAdapterRegistered(0)) {
       Hive.registerAdapter(TripAdapter());
     }
@@ -76,7 +75,6 @@ class HiveService {
 
   // Delete Trip and associated Expenses
   static Future<void> deleteTripAndAssociatedExpenses(String tripId) async {
-    print('final step');
     final expenseBox = getExpenseBox();
     final tripBox = getTripBox();
 

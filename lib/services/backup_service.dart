@@ -16,7 +16,6 @@ class BackupService {
 
     final tripsJson = trips.map((trip) => trip.toJson()).toList();
     final expensesJson = expenses.map((expense) => expense.toJson()).toList();
-    print("expenses json $expenses");
     final user = Provider.of<LoginStateProvider>(context, listen: false).user;
 
     if (user != null) {
@@ -24,7 +23,7 @@ class BackupService {
       final idToken = await firebaseUser?.getIdToken();
 
       final response = await http.post(
-        Uri.parse('http://192.168.1.4:8000/api/backup/'),
+        Uri.parse('http://192.168.1.7:8000/api/backup/'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $idToken',
@@ -77,14 +76,13 @@ class BackupService {
       final idToken = await firebaseUser?.getIdToken();
 
       final response = await http.get(
-        Uri.parse('http://192.168.1.4:8000/api/fetch/'),
+        Uri.parse('http://192.168.1.7:8000/api/fetch/'),
         headers: {
           'Authorization': 'Bearer $idToken',
         },
       );
 
       if (response.statusCode == 200) {
-        print('Backed up data from server: ${response.body}');
         return jsonDecode(response.body);
       } else {
         throw Exception('Failed to load data');
@@ -100,7 +98,7 @@ class BackupService {
     final idToken = await firebaseUser?.getIdToken();
 
     final response = await http.delete(
-      Uri.parse('http://192.168.1.4:8000/api/delete_data/$dataType/$dataId/'),
+      Uri.parse('http://192.168.1.7:8000/api/delete_data/$dataType/$dataId/'),
       headers: {
         'Authorization': 'Bearer $idToken',
       },
@@ -113,10 +111,9 @@ class BackupService {
       String dataType, Map<String, dynamic> data) async {
     final firebaseUser = FirebaseAuth.instance.currentUser;
     final idToken = await firebaseUser?.getIdToken();
-    print('data i am sending: ${data}');
     final response = await http.put(
       Uri.parse(
-          'http://192.168.1.4:8000/api/update_data/$dataType/${data['_id']}/'),
+          'http://192.168.1.7:8000/api/update_data/$dataType/${data['_id']}/'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $idToken',
@@ -135,10 +132,8 @@ class BackupService {
     if (data['_id'] == null || data['_id'].isEmpty) {
       data.remove('_id');
     }
-    print('data upload $data');
-    print('data type: ' + dataType);
     final response = await http.post(
-      Uri.parse('http://192.168.1.4:8000/api/backup/'),
+      Uri.parse('http://192.168.1.7:8000/api/backup/'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $idToken',
@@ -159,7 +154,7 @@ class BackupService {
       final idToken = await firebaseUser?.getIdToken();
       final response = await http.get(
         Uri.parse(
-            'http://192.168.1.4:8000/api/fetch_specific_data/$dataType/$dataId/'),
+            'http://192.168.1.7:8000/api/fetch_specific_data/$dataType/$dataId/'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $idToken',
@@ -168,7 +163,6 @@ class BackupService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print('the data fetched: $data');
         // Return data as Map<String, dynamic> or handle accordingly
         return data;
       } else {

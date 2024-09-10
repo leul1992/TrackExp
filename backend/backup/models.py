@@ -12,13 +12,14 @@ class CustomUser(AbstractUser):
         related_name='custom_customuser_set',
         blank=True,
     )
+    scheduled_deletion_date = models.DateTimeField(null=True, blank=True)
 
 class ScheduledDeletion(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
     scheduled_date = models.DateTimeField()
 
     def schedule_deletion(self):
-        self.scheduled_date = timezone.now() + timedelta(days=30)
+        self.scheduled_date = timezone.now() + timedelta(seconds=30)
         self.save()
 
     def is_past_due(self):

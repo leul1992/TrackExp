@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import 'package:trackexp/services/auth.dart'; // Import the auth service
+import 'package:trackexp/services/auth.dart';
 
 class LoginDialog extends StatefulWidget {
   const LoginDialog({super.key});
@@ -31,7 +31,6 @@ class _LoginDialogState extends State<LoginDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.white,
-      shadowColor: const Color.fromARGB(255, 69, 220, 74),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20.0),
       ),
@@ -57,7 +56,7 @@ class _LoginDialogState extends State<LoginDialog> {
                       child: Column(
                         children: [
                           SvgPicture.asset(
-                            'images/icons/android_light_rd_ctn.svg', // Correct path to SVG asset
+                            'images/icons/android_light_rd_ctn.svg',
                             height: 40.0,
                           ),
                         ],
@@ -74,7 +73,7 @@ class _LoginDialogState extends State<LoginDialog> {
                 style: TextStyle(
                   fontSize: 16.0,
                   fontWeight: FontWeight.w500,
-                  color: Color.fromARGB(255, 39, 123, 73),
+                  color: Colors.green,
                 ),
               ),
             ),

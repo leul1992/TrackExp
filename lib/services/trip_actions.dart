@@ -25,7 +25,6 @@ class TripActions {
   }
 
   static Future<void> deleteTrip(BuildContext context, String tripId) async {
-    print("another one");
     showDialog(
       context: context,
       builder: (BuildContext context) {

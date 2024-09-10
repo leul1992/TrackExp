@@ -12,18 +12,16 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
+  // Sign in with Google
   Future<void> signInWithGoogle(BuildContext context) async {
     try {
-      await _googleSignIn.signOut();
+      await _googleSignIn.signOut(); // Ensure user starts fresh
 
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        return; // User canceled the login
-      }
+      if (googleUser == null) return; // User canceled login
 
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
-
       final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
@@ -36,8 +34,6 @@ class AuthService {
       if (user == null) {
         Fluttertoast.showToast(
           msg: 'Login Failed',
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
           backgroundColor: Colors.red,
           textColor: Colors.white,
         );
@@ -47,11 +43,12 @@ class AuthService {
       // Check if the account is scheduled for deletion
       final shouldReactivate = await _checkForScheduledDeletion(user, context);
       if (shouldReactivate) {
-        await _reactivateAccount(user);
+        await _reactivateAccount(user); // Reactivate account
       } else {
-        return; // User chose not to reactivate, so do not log them in
+        return; // User opted not to reactivate; cancel login
       }
 
+      // Backup user data after successful login and reactivation
       await _backupUserData(user);
 
       final customUser = CustomUser(
@@ -62,28 +59,24 @@ class AuthService {
 
       Fluttertoast.showToast(
         msg: 'Login Successful',
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
         backgroundColor: Colors.green,
         textColor: Colors.white,
       );
     } catch (e) {
-      print(e);
       Fluttertoast.showToast(
-        msg: 'An error occurred',
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
+        msg: 'An error occurred: $e',
         backgroundColor: Colors.red,
         textColor: Colors.white,
       );
     }
   }
 
+  // Check if account is scheduled for deletion
   Future<bool> _checkForScheduledDeletion(
       User user, BuildContext context) async {
     final idToken = await user.getIdToken();
     final response = await http.get(
-      Uri.parse('http://192.168.1.4:8000/api/check_scheduled_deletion/'),
+      Uri.parse('http://192.168.1.7:8000/api/check_scheduled_deletion/'),
       headers: {
         'Authorization': 'Bearer $idToken',
       },
@@ -92,19 +85,22 @@ class AuthService {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       final isScheduledForDeletion = data['scheduled_for_deletion'] ?? false;
+      final daysRemaining = data['days_remaining'] ?? 0;
 
       if (isScheduledForDeletion) {
-        final shouldReactivate = await _showReactivationDialog(context);
+        final shouldReactivate =
+            await _showReactivationDialog(context, daysRemaining);
         return shouldReactivate;
       }
     }
     return true; // No deletion scheduled, proceed with login
   }
 
+  // Reactivate user account if scheduled for deletion
   Future<void> _reactivateAccount(User user) async {
     final idToken = await user.getIdToken();
     final response = await http.post(
-      Uri.parse('http://192.168.1.4:8000/api/reactivate_account/'),
+      Uri.parse('http://192.168.1.7:8000/api/check_and_reactivate_account/'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $idToken',
@@ -117,28 +113,25 @@ class AuthService {
     if (response.statusCode == 200) {
       Fluttertoast.showToast(
         msg: 'Account reactivated successfully',
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
         backgroundColor: Colors.green,
         textColor: Colors.white,
       );
     } else {
       Fluttertoast.showToast(
         msg: 'Failed to reactivate account',
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
         backgroundColor: Colors.red,
         textColor: Colors.white,
       );
     }
   }
 
+  // Backup user data to the backend
   Future<void> _backupUserData(User? user) async {
     if (user == null) return;
 
     final idToken = await user.getIdToken();
     final response = await http.post(
-      Uri.parse('http://192.168.1.4:8000/api/backup_user_data/'),
+      Uri.parse('http://192.168.1.7:8000/api/backup_user_data/'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $idToken',
@@ -152,30 +145,29 @@ class AuthService {
     if (response.statusCode == 200) {
       Fluttertoast.showToast(
         msg: 'User data backed up successfully',
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
         backgroundColor: Colors.green,
         textColor: Colors.white,
       );
     } else {
       Fluttertoast.showToast(
         msg: 'Failed to back up user data',
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
         backgroundColor: Colors.red,
         textColor: Colors.white,
       );
     }
   }
 
-  Future<bool> _showReactivationDialog(BuildContext context) async {
+  // Show a dialog asking if the user wants to reactivate their account
+  Future<bool> _showReactivationDialog(
+      BuildContext context, int daysRemaining) async {
     return await showDialog<bool>(
           context: context,
           builder: (context) {
             return AlertDialog(
               title: const Text('Reactivate Account'),
-              content: const Text(
-                  'Your account is scheduled for deletion. Would you like to reactivate it?'),
+              content: Text(
+                'Your account is scheduled for deletion in $daysRemaining days. Would you like to reactivate it?',
+              ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(false),
@@ -192,24 +184,34 @@ class AuthService {
         false;
   }
 
+  // Schedule account deletion for 30 days
   Future<void> scheduleAccountDeletion(CustomUser user) async {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    final idToken = await firebaseUser?.getIdToken();
     final response = await http.post(
-      Uri.parse('http://your-backend-url/schedule_account_deletion/'),
+      Uri.parse('http://192.168.1.7:8000/api/schedule_account_deletion/'),
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
         // Add any necessary authorization headers here
       },
-      body: {
+      body: jsonEncode({
         'email': user.email,
-      },
+      }),
     );
 
     if (response.statusCode == 200) {
-      // Account deletion scheduled successfully
-      print('Account deletion scheduled for ${user.email}');
+      Fluttertoast.showToast(
+        msg: 'Account deletion scheduled successfully',
+        backgroundColor: Colors.green,
+        textColor: Colors.white,
+      );
     } else {
-      // Handle errors here
-      print('Failed to schedule account deletion for ${user.email}');
+      Fluttertoast.showToast(
+        msg: 'Failed to schedule account deletion',
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
     }
   }
 }

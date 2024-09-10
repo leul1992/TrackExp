@@ -61,6 +61,7 @@ class _DetailViewState extends State<DetailView> {
 
   Future<void> fetchExpenses() async {
     final fetchedExpenses = HiveService.getExpenses(widget.tripId);
+    print('Expenses: ${fetchedExpenses[0].isSale}');
     setState(() {
       expenses = fetchedExpenses;
       calculateTotalExpenses();
@@ -100,7 +101,6 @@ class _DetailViewState extends State<DetailView> {
           IconButton(
             onPressed: () async {
               // Handle delete action
-              print("Delete trip ${widget.tripId}");
               await TripActions.deleteTrip(context, widget.tripId);
               widget.onTripUpdated(); // Trigger the refresh on HomePage
             },
